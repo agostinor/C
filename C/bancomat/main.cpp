@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <cstdlib>
+#include <cstring>
 
 typedef struct node {
     int val;
@@ -44,8 +45,84 @@ void print_versamenti(node_t * head) {
     }
 }
 
+void leggiFile(FILE **f){
+    *f = fopen("/home/ago/ClionProjects/bancomat/file.txt", "r");
+    char c;
+    //questo fa saltare la prima righa
+    while (c != EOF){
+        c = fgetc (*f);
+        if(c=='.'){
+            break;
+        }
+    }
+
+    if (f==NULL) perror ("Error opening file");
+    else
+    {
+        while (c != EOF){
+            c = fgetc (*f);
+            if(c == EOF){
+                break;
+            }
+            printf("%c", c);
+            if (c == '.'){
+                c = fgetc (*f);
+                if(c == '\n'){
+                    printf("\n");
+                } else{
+                    printf("\n%c", c);
+                }
+            }
+        }
+        fclose(*f);
+    }
+}
+
+int pickContoCorrenteFile(FILE **f){
+    *f = fopen("/home/ago/ClionProjects/bancomat/file.txt", "r");
+    int number = 0;
+    fscanf(*f, "Conto corrente attuale: %d.", &number);
+    fclose(*f);
+    return number;
+}
+
+char* concat(const char *s1, const char *s2)
+{
+    char *result = (char *) malloc(strlen(s1) + strlen(s2) + 1);//+1 for the zero-terminator
+    //in real code you would check for errors in malloc here
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
+
+int find_length(char *input){
+    int length = 0;
+    while(input[length]!='\0')  //  remove ;
+    {
+        length++;
+    }
+    return length;
+}
+
+void setFirstRow(FILE **f, int a) {
+    char * strNumber;
+    char * str= "Conto corrente attuale: ";
+    sprintf(strNumber, "%d.", a);
+    str = concat(str, (const char *) strNumber);
+    int l = find_length(str);
+    *f = fopen("/home/ago/ClionProjects/bancomat/file.txt", "r+");
+    for(int i = 0; i< l+1; i++){
+        fputc(str[i], *f);
+    }
+    fclose(*f);
+}
+
 int main() {
-    int conto = 10000;
+
+    const char * path = "/home/ago/ClionProjects/bancomat/file.txt";
+    FILE *f;
+
+    int conto = pickContoCorrenteFile(&f);
     int preOvers = 0;
     int contaPrelievi = 0;
     int contaVersamenti = 0;
@@ -53,23 +130,30 @@ int main() {
     node_t *prelievi;
     node_t *versamenti;
 
-    printf("\nIl tuo conto è di %d euro\n", conto);
-    printf("Scrivi se vuoi prelevare o versare danaro\n");
-    printf("Scrivi movimenti se vuoi vedere i movimenti effettuati\n");
-    printf("Scrivi exit se vuoi chiudere il bancomat\n");
-    printf("ATTENZIONE: puoi inserire soltanto numeri interi\n");
-    for(int i = 0; 1!=0; i++){
+    char *s = (char*) malloc( 100 );
+    int i = 0;
+    char c;
 
+    printf("\nIl tuo conto è di %d euro.\n", conto);
+    printf("Scrivi se vuoi prelevare o versare danaro.\n");
+    printf("Scrivi movimenti se vuoi vedere i movimenti effettuati.\n");
+    printf("Scrivi exit se vuoi chiudere il bancomat.\n");
+    printf("ATTENZIONE: puoi inserire soltanto numeri interi.\n");
+    do{
         if(i!=0){
-            printf("Ora il tuo conto è %d\n", conto);
+            setFirstRow(&f, conto);
+            printf("Ora il tuo conto è %d.\n", conto);
             printf("Prelevare o versare?\n");
-            printf("Digita movimenti se vuoi visulizzarli\n");
+            printf("Digita movimenti se vuoi visulizzare quelli del tuo ultimo accesso.\n");
+            printf("Digita file se vuoi visulizzare tutti i tuoi movimenti.\n");
+            printf("Exit per uscire.\n");
+        } else{
+            i++;
         }
-
         time_t t = time(NULL);
         struct tm tiempo = *localtime(&t);
 
-        char *s = (char*) malloc( 100 );
+
         scanf("%s",s);
         switch (s[0]) {
             case 'p':
@@ -84,7 +168,12 @@ int main() {
                 }else{
                     push(&prelievi, preOvers, &tiempo);
                 }
-                contaPrelievi++;
+                    f = fopen(path, "a");
+                    fprintf(f, "In data %d/%d/%d alle %d:%d:%d hai prelevato %d euro.\n", tiempo.tm_mday,
+                                        tiempo.tm_mon, tiempo.tm_year + 1900, tiempo.tm_hour, tiempo.tm_min,
+                                        tiempo.tm_sec, preOvers);
+                    contaPrelievi++;
+                fclose(f);
                 break;
             case 'v':
                 printf("Quanto vuoi versare?\n");
@@ -98,7 +187,12 @@ int main() {
                 }else{
                     push(&versamenti, preOvers, &tiempo);
                 }
+                f = fopen(path, "a");
+                fprintf(f, "In data %d/%d/%d alle %d:%d:%d hai versato %d euro.\n", tiempo.tm_mday,
+                        tiempo.tm_mon, tiempo.tm_year + 1900, tiempo.tm_hour, tiempo.tm_min,
+                        tiempo.tm_sec, preOvers);
                 contaVersamenti++;
+                fclose(f);
                 break;
             case 'm':
                 printf("Scrivi se vuoi vedere i versamenti o i prelievi effettuati\n");
@@ -111,9 +205,11 @@ int main() {
                     printf("Comando errato. Scrivi p versamenti o prelievi.\n");
                 }
                 break;
-            case 'e':
-                printf("Bancomat spento.");
-                return 0;
+            case 'f':
+                leggiFile(&f);
+                break;
         }
-    }
+    }while (s[0]!='e' && s[0]!='E');
+    printf("Bancomat spento.");
+    return 0;
 }
